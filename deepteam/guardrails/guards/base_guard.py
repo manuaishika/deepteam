@@ -18,6 +18,15 @@ class SafetyLevel(Enum):
     UNSAFE = "unsafe"
 
 
+def _score_from_safety_level(
+    safety_level: Union[str, SafetyLevel, None],
+) -> float:
+    """1.0 only for a safe verdict; the level may be a string or a SafetyLevel."""
+    if isinstance(safety_level, SafetyLevel):
+        safety_level = safety_level.value
+    return 1.0 if safety_level == SafetyLevel.SAFE.value else 0.0
+
+
 class BaseGuard(ABC):
     score: Optional[float] = None
     reason: Optional[str] = None
@@ -45,7 +54,7 @@ class BaseGuard(ABC):
             self.evaluation_cost += cost
             self.safety_level = res.safety_level
             self.reason = res.reason
-            self.score = 1.0 if res.safety_level == SafetyLevel.SAFE else 0.0
+            self.score = _score_from_safety_level(res.safety_level)
         else:
             try:
                 res: SafetyLevelSchema = self.model.generate(
@@ -53,17 +62,13 @@ class BaseGuard(ABC):
                 )
                 self.safety_level = res.safety_level
                 self.reason = res.reason
-                self.score = (
-                    1.0 if res.safety_level == SafetyLevel.SAFE else 0.0
-                )
+                self.score = _score_from_safety_level(res.safety_level)
             except TypeError:
                 res = self.model.generate(guard_prompt)
                 data = trim_and_load_json(res, self)
                 self.safety_level = data.get("safety_level")
                 self.reason = data.get("reason")
-                self.score = (
-                    1.0 if self.safety_level == SafetyLevel.SAFE else 0.0
-                )
+                self.score = _score_from_safety_level(self.safety_level)
 
         return self.safety_level
 
@@ -76,7 +81,7 @@ class BaseGuard(ABC):
             self.evaluation_cost += cost
             self.safety_level = res.safety_level
             self.reason = res.reason
-            self.score = 1.0 if res.safety_level == SafetyLevel.SAFE else 0.0
+            self.score = _score_from_safety_level(res.safety_level)
         else:
             try:
                 res: SafetyLevelSchema = await self.model.a_generate(
@@ -84,17 +89,13 @@ class BaseGuard(ABC):
                 )
                 self.safety_level = res.safety_level
                 self.reason = res.reason
-                self.score = (
-                    1.0 if res.safety_level == SafetyLevel.SAFE else 0.0
-                )
+                self.score = _score_from_safety_level(res.safety_level)
             except TypeError:
                 res = await self.model.a_generate(guard_prompt)
                 data = trim_and_load_json(res, self)
                 self.safety_level = data.get("safety_level")
                 self.reason = data.get("reason")
-                self.score = (
-                    1.0 if self.safety_level == SafetyLevel.SAFE else 0.0
-                )
+                self.score = _score_from_safety_level(self.safety_level)
 
         return self.safety_level
 
